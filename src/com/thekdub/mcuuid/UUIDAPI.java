@@ -10,14 +10,14 @@ import java.io.IOException;
 public class UUIDAPI {
 
 //  public static String getName(String uuid) throws IOException, UUIDNotFoundException {
-//    for (Name n : getNames(uuid)) {
+//    for (Name n : getName(uuid)) {
 //      if (n.changedToAt == 0)
 //        return n.name;
 //    }
 //    return "";
 //  }
 
-  public static String getNames(String uuid) throws IOException, UUIDNotFoundException {
+  public static String getName(String uuid) throws IOException, UUIDNotFoundException {
     return DataStore.getName(uuid);
   }
 

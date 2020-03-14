@@ -26,7 +26,7 @@ public class MCUUID extends JavaPlugin {
       e.printStackTrace();
     }
     try {
-      System.out.println(UUIDAPI.getNames(uuid));
+      System.out.println(UUIDAPI.getName(uuid));
     } catch (Exception e) {
       e.printStackTrace();
     }
