@@ -4,12 +4,10 @@ import com.thekdub.mcuuid.MCUUID;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.Name;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.LinkedHashSet;
 
 public class DataStore {
 
@@ -41,46 +39,69 @@ public class DataStore {
 
   public static boolean uuidCached(String uuid) {
     init();
-    return yml.contains("uuid." + uuid);
+    return yml.contains("uuid." + uuid) && yml.getLong("uuid." + uuid + ".cached") >=
+          System.currentTimeMillis() - MCUUID.instance.updateFrequency;
   }
 
-  public static boolean valid(String uuid, String name) {
-    return false;
+  private static boolean validateUUID(String uuid) {
+    if (!uuidCached(uuid))
+      return false;
+    if (!nameCached(yml.getString("uuid." + uuid + ".name")))
+      return false;
+    return uuid.equalsIgnoreCase(yml.getString("name." + yml.getString("uuid." + uuid + ".name") + ".uuid"));
   }
 
-  public static LinkedHashSet<Name> getNames(String uuid) throws IOException, UUIDNotFoundException {
+  private static boolean validateName(String name) {
+    if (!uuidCached(name))
+      return false;
+    if (!nameCached(yml.getString("name." + name + ".uuid")))
+      return false;
+    return name.equalsIgnoreCase(yml.getString("uuid." + yml.getString("name." + name + ".uuid") + ".name"));
+  }
+
+  public static String getName(String uuid) throws IOException, UUIDNotFoundException {
     if (uuidCached(uuid)) {
-      LinkedHashSet<Name> names = new LinkedHashSet<>();
-      ConfigurationSection section = yml.getConfigurationSection("uuid." + uuid);
-      for (String name : section.getKeys(false)) {
-        names.add(new Name(name, section.getLong(name)));
+      return yml.getString("uuid." + uuid + ".name");
+    }
+    else {
+      updateUUID(uuid);
+      return getName(uuid);
+    }
+  }
+
+  public static String getUUID(String name) throws IOException, UserNotFoundException {
+    if (nameCached(name)) {
+      return yml.getString("name." + name + ".uuid");
+    }
+    else {
+      updateName(name);
+      return getUUID(name);
+    }
+  }
+
+  private static void updateUUID(String uuid) throws IOException, UUIDNotFoundException {
+    String name = "";
+    long changedToAt = -1;
+    for (Name n : Parser.parseNameRequest(NetRequest.fetchName(uuid))) {
+      if (n.changedToAt > changedToAt || changedToAt == -1) {
+        name = n.name;
+        changedToAt = n.changedToAt;
       }
     }
-    else {
-
-    }
-    return Parser.parseNameRequest(NetRequest.fetchName(uuid));
+    yml.set("uuid." + uuid + ".name", name);
+    yml.set("uuid." + uuid + ".cached", System.currentTimeMillis());
+    yml.set("name." + name + ".uuid", uuid);
+    yml.set("name." + name + ".cached", System.currentTimeMillis());
+    save();
   }
 
-  public static String getUUID(String name, long ms) throws IOException, UserNotFoundException {
-    if (nameCached(name)) {
-
-    }
-    else {
-
-    }
-    return Parser.parseUUIDRequest(NetRequest.fetchUUID(name, ms));
+  private static void updateName(String name) throws IOException, UserNotFoundException {
+    String uuid = Parser.parseUUIDRequest(NetRequest.fetchUUID(name, System.currentTimeMillis()));
+    yml.set("uuid." + uuid + ".name", name);
+    yml.set("uuid." + uuid + ".cached", System.currentTimeMillis());
+    yml.set("name." + name + ".uuid", uuid);
+    yml.set("name." + name + ".cached", System.currentTimeMillis());
+    save();
   }
-
-  /* Data Structure
-  name:
-    $user.name:
-      uuid: $uuid
-      set: $set
-  uuid:
-    $user.uuid:
-      $name: $set
-
-   */
 
 }
