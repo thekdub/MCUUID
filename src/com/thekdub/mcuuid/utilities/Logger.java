@@ -37,7 +37,8 @@ public class Logger {
   public static void write(String msg) {
     init();
     try {
-      writer.write(Parser.parseMillis(System.currentTimeMillis(), "yyyy-MM-dd HH:mm:ss:SSS") + " >> " + msg);
+      writer.write(Parser.parseMillis(System.currentTimeMillis(), "yyyy-MM-dd HH:mm:ss:SSS") + " >> " + msg + "\n");
+      writer.flush();
     }
     catch (IOException e) {
       e.printStackTrace();

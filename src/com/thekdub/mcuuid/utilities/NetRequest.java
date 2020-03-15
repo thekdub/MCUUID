@@ -11,7 +11,7 @@ import java.net.URL;
 
 public class NetRequest {
   public static String fetchUUID(String player, long ms) throws IOException, UserNotFoundException {
-    Logger.write("Fetching UUID for '" + player + "' @ '" + ms + "' from Mojang API.");
+    Logger.write("Fetching UUID for '" + player + "' from Mojang API.");
     player = player.replaceAll("[^a-zA-Z0-9_]", "");
     String url = "https://api.mojang.com/users/profiles/minecraft/" + player + "?at=" + ms;
     HttpURLConnection urlConnection = (HttpURLConnection) (new URL(url)).openConnection();
