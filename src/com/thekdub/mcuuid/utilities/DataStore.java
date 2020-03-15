@@ -11,18 +11,18 @@ import java.io.IOException;
 
 public class DataStore {
 
-  private static String file;
+  private static File file;
   private static YamlConfiguration yml;
 
-  private static void init() {
+  public static void init() {
     if (file == null) {
-      file = MCUUID.instance.getDataFolder() + "uuidCache.yml";
+      file = new File(MCUUID.instance.getDataFolder() + File.separator + "uuidCache.yml");
     }
     if (yml == null)
-      yml = YamlConfiguration.loadConfiguration(new File(file));
+      yml = YamlConfiguration.loadConfiguration(file);
   }
 
-  private static void save() {
+  public static void save() {
     init();
     try {
       yml.save(file);
@@ -88,6 +88,7 @@ public class DataStore {
         changedToAt = n.changedToAt;
       }
     }
+    Logger.write("Updated UUID '" + uuid + "' with name '" + name + "'");
     yml.set("uuid." + uuid + ".name", name);
     yml.set("uuid." + uuid + ".cached", System.currentTimeMillis());
     yml.set("name." + name + ".uuid", uuid);
@@ -97,6 +98,7 @@ public class DataStore {
 
   private static void updateName(String name) throws IOException, UserNotFoundException {
     String uuid = Parser.parseUUIDRequest(NetRequest.fetchUUID(name, System.currentTimeMillis()));
+    Logger.write("Updated name '" + name + "' with UUID '" + uuid + "'");
     yml.set("uuid." + uuid + ".name", name);
     yml.set("uuid." + uuid + ".cached", System.currentTimeMillis());
     yml.set("name." + name + ".uuid", uuid);
