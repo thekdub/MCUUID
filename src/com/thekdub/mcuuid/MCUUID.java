@@ -30,6 +30,7 @@ public class MCUUID extends JavaPlugin {
 
   public void onDisable() {
     DataStore.save();
+    Logger.save();
     Logger.write("MCUUID Unloaded Successfully.");
   }
 
