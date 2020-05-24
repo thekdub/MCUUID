@@ -10,7 +10,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 public class NetRequest {
-  public static String fetchUUID(String player, long ms) throws IOException, UserNotFoundException {
+  static String fetchUUID(String player, long ms) throws IOException, UserNotFoundException {
     Logger.write("Fetching UUID for '" + player + "' from Mojang API.");
     player = player.replaceAll("[^a-zA-Z0-9_]", "");
     String url = "https://api.mojang.com/users/profiles/minecraft/" + player + "?at=" + ms;
@@ -28,7 +28,7 @@ public class NetRequest {
     return result.toString();
   }
 
-  public static String fetchName(String uuid) throws IOException, UUIDNotFoundException {
+  static String fetchNames(String uuid) throws IOException, UUIDNotFoundException {
     Logger.write("Fetching name for '" + uuid + "' from Mojang API.");
     uuid = uuid.replaceAll("[^a-zA-Z0-9]", "");
     String url = "https://api.mojang.com/user/profiles/" + uuid + "/names";
