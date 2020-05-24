@@ -11,19 +11,33 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Parser {
-  public static LinkedHashSet<Name> parseNameRequest(String str) {
-    str = str.substring(1, str.length() - 1);
+  static LinkedHashSet<Name> parseNameRequest(String str) {
+    str = str.substring(1, str.length() - 1).replace("\"", "");
     LinkedHashSet<Name> names = new LinkedHashSet<Name>();
     if (str.contains("},{")) {
       for (String s : str.split("[}],[{]")) {
-        names.add(new Name(s));
+        names.add(makeName(s));
       }
+    }
+    else {
+      names.add(makeName(str.substring(1, str.length() - 1)));
     }
     return names;
   }
 
-  public static String parseUUIDRequest(String str) {
-    str = str.split(",")[0].replaceAll("[\"{}]", "");
+  private static Name makeName(String str) {
+    str = str.replaceAll("[\"{}]", "");
+    if (str.contains(",")) {
+      String[] split = str.split(",");
+      return new Name(split[0].split(":")[1], Long.parseLong(split[1].split(":")[1]));
+    }
+    else {
+      return new Name(str.split(":")[1]);
+    }
+  }
+
+  static String parseUUIDRequest(String str) {
+    str = str.replaceAll("[\"{}]", "").split(",")[1];
     return str.substring(3);
   }
 
@@ -82,7 +96,7 @@ public class Parser {
     return years + months + weeks + days + hours + minutes + seconds > 0L ? val : val < 0L ? 9223372036854775806L : -1L;
   }
 
-  public static String parseMillis(long millis, String dateFormat) {
+  static String parseMillis(long millis, String dateFormat) {
     // "MM-dd-yyyy HH:mm" = MonthMonth-DayDay-YearYearYearYear HourHour:MinuteMinute
     DateFormat format = new SimpleDateFormat(dateFormat);
     format.setTimeZone(TimeZone.getTimeZone("America/New_York"));
