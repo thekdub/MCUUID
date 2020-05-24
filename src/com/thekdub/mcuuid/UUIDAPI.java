@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 
 public class UUIDAPI {
 
@@ -16,14 +17,16 @@ public class UUIDAPI {
   }
 
   public static String getUUID(Player player) throws IOException, UserNotFoundException {
-    return getUUID(player.getName());
+    return getUUID(player.getName().toLowerCase());
   }
 
   public static String getUUID(String name) throws IOException, UserNotFoundException {
+    name = name.toLowerCase();
     return DataStore.getUUID(name);
   }
 
   public static void updateName(String name) throws IOException, UserNotFoundException {
+    name = name.toLowerCase();
     DataStore.updateName(name);
   }
 
@@ -31,9 +34,8 @@ public class UUIDAPI {
     DataStore.updateUUID(uuid);
   }
 
-  public static HashSet<Name> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
-    DataStore.getNameHistory(uuid);
-    return null;
+  public static LinkedHashSet<Name> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
+    return DataStore.getNameHistory(uuid);
   }
 
 }

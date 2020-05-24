@@ -96,7 +96,7 @@ public class Parser {
     return years + months + weeks + days + hours + minutes + seconds > 0L ? val : val < 0L ? 9223372036854775806L : -1L;
   }
 
-  static String parseMillis(long millis, String dateFormat) {
+  public static String parseMillis(long millis, String dateFormat) {
     // "MM-dd-yyyy HH:mm" = MonthMonth-DayDay-YearYearYearYear HourHour:MinuteMinute
     DateFormat format = new SimpleDateFormat(dateFormat);
     format.setTimeZone(TimeZone.getTimeZone("America/New_York"));

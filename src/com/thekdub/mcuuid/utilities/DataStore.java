@@ -61,6 +61,7 @@ public class DataStore {
   }
 
   private static boolean nameCached(String name) {
+    name = name.toLowerCase();
     init();
     return yml.contains("name." + name) && yml.getLong("name." + name + ".cached") >=
           System.currentTimeMillis() - MCUUID.instance.updateFrequency;
@@ -78,22 +79,23 @@ public class DataStore {
     }
     else {
       updateUUID(uuid);
-      return getName(uuid);
+      return yml.getString("uuid." + uuid + ".name");
     }
   }
 
   public static String getUUID(String name) throws IOException, UserNotFoundException {
+    name = name.toLowerCase();
     if (nameCached(name)) {
       return yml.getString("name." + name + ".uuid");
     }
     else {
       updateName(name);
-      return getUUID(name);
+      return yml.getString("name." + name + ".uuid");
     }
   }
 
   public static LinkedHashSet<Name> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
-    if (uuidCached(uuid)) {
+    if (uuidCached(uuid)) { // TODO: Add sorting of name history
       ConfigurationSection history = yml.getConfigurationSection("uuid." + uuid + ".history");
       LinkedHashSet<Name> names = new LinkedHashSet<>();
       for (String name : history.getKeys(false)) {
@@ -103,7 +105,12 @@ public class DataStore {
     }
     else {
       updateUUID(uuid);
-      return getNameHistory(uuid);
+      ConfigurationSection history = yml.getConfigurationSection("uuid." + uuid + ".history");
+      LinkedHashSet<Name> names = new LinkedHashSet<>();
+      for (String name : history.getKeys(false)) {
+        names.add(new Name(name, history.getLong(name)));
+      }
+      return names;
     }
   }
 
@@ -114,7 +121,7 @@ public class DataStore {
     LinkedHashSet<Name> names = Parser.parseNameRequest(NetRequest.fetchNames(uuid));
     for (Name n : names) {
       if (n.changedToAt > changedToAt || changedToAt == -1) {
-        name = n.name;
+        name = n.name.toLowerCase();
         changedToAt = n.changedToAt;
       }
     }
@@ -139,6 +146,7 @@ public class DataStore {
   }
 
   public static void updateName(String name) throws IOException, UserNotFoundException {
+    name = name.toLowerCase();
     String uuid = Parser.parseUUIDRequest(NetRequest.fetchUUID(name, System.currentTimeMillis()));
     if (name.length() > 16 || name.length() == 0) {
       Logger.write("Failed to update name '" + name + "'. Invalid name");
