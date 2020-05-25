@@ -33,6 +33,7 @@ public class DataStore {
      Class Structure:
      init() -- Initializes the cache file if not initialized.
      save() -- Saves the cache file.
+     scrub() -- Scans through cache and removes expired entries.
      boolean nameCached(name) -- Returns true if name is cached
      boolean uuidCached(uuid) -- Returns true if uuid is cached
      String getUUID(name) -- Returns uuid
@@ -58,6 +59,21 @@ public class DataStore {
     } catch (IOException e) {
       e.printStackTrace();
     }
+  }
+
+  public static void scrub() {
+    init();
+    for (String uuid : yml.getConfigurationSection("uuid").getKeys(false)) {
+      if (!uuidCached(uuid)) {
+        yml.set("uuid." + uuid, null);
+      }
+    }
+    for (String name : yml.getConfigurationSection("name").getKeys(false)) {
+      if (!nameCached(name)) {
+        yml.set("name." + name, null);
+      }
+    }
+    save();
   }
 
   private static boolean nameCached(String name) {
