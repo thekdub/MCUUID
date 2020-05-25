@@ -8,4 +8,4 @@ commands:
     description: Retrieve a user's UUID or name using their name or UUID respectively.
     aliases: [finduuid,minecraftuuid]
     permission: mcuuid.search
-    usage: /MCUUID (Name or UUID)
+    usage: /MCUUID (Name / UUID / .reload) [.history] [.update]

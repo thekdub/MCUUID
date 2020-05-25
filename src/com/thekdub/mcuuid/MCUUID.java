@@ -28,6 +28,7 @@ public class MCUUID extends JavaPlugin {
       saveDefaultConfig();
     }
     updateFrequency = Parser.parseTime(getConfig().getString("UUID_Refresh_Frequency"));
+    DataStore.scrub();
     Logger.write("MCUUID Loaded Successfully.");
   }
 
@@ -49,9 +50,9 @@ public class MCUUID extends JavaPlugin {
     if (cmd.getLabel().equalsIgnoreCase("mcuuid")) {
       if (args.length == 0) { //Display How To Use
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&8[&2MC&6UUID&8] &7"
-              + "Use &b/MCUUID (UUID) &7to find a user's name from their UUID"));
+              + "Use &b/MCUUID (UUID) &7to find a user's name from a UUID"));
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "    &7"
-              + "Use &b/MCUUID (name) &7to find a user's UUID from their name"));
+              + "Use &b/MCUUID (name) &7to find a user's UUID from a name"));
       }
       else { //Process Arguments
         String arg = args[0];
