@@ -20,6 +20,7 @@ import java.util.logging.Level;
 public class MCUUID extends JavaPlugin {
   public static MCUUID instance;
   public long updateFrequency = 0L;
+  public long failureCooldown = 0L;
 
   public void onEnable() {
     instance = this;
@@ -27,7 +28,8 @@ public class MCUUID extends JavaPlugin {
     if (!new File(dir + "config.yml").exists()) {
       saveDefaultConfig();
     }
-    updateFrequency = Parser.parseTime(getConfig().getString("UUID_Refresh_Frequency"));
+    updateFrequency = Parser.parseTime(getConfig().getString("UUID_Refresh_Frequency", "7d"));
+    failureCooldown = Parser.parseTime(getConfig().getString("API_Failure_Cooldown", "1m"));
     DataStore.scrub();
     Logger.write("MCUUID Loaded Successfully.");
   }
