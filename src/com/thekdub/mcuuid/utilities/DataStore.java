@@ -15,22 +15,16 @@ import java.util.LinkedHashSet;
 public class DataStore {
 
   private static Connection connection = null;
-  private static File file;
-  private static YamlConfiguration yml;
 
   public static void init() {
-    if (file == null) {
-      file = new File(MCUUID.instance.getDataFolder() + File.separator + "updateData.yml");
-    }
-    if (yml == null) {
-      yml = YamlConfiguration.loadConfiguration(file);
-    }
     if (connection == null) {
       try {
         connection = DriverManager.getConnection("jdbc:sqlite:" + MCUUID.instance.getDataFolder() + File.separator
               + "uuid.db");
         connection.createStatement().execute("CREATE TABLE IF NOT EXISTS data (uuid TEXT, name TEXT, " +
               "time INTEGER, PRIMARY KEY(uuid, name, time));");
+        connection.createStatement().execute("CREATE TABLE IF NOT EXISTS retrieved (user TEXT, time INTEGER, " +
+              "PRIMARY KEY(user));");
       }
       catch (SQLException e) {
         e.printStackTrace();
@@ -38,19 +32,7 @@ public class DataStore {
     }
   }
 
-  public static void save() {
-    try {
-      yml.save(file);
-    }
-    catch (IOException e) {
-      e.printStackTrace();
-    }
-  }
-
   public static void close() {
-    save();
-    file = null;
-    yml = null;
     try {
       connection.close();
       connection = null;
@@ -63,7 +45,8 @@ public class DataStore {
   private static boolean nameCached(String name) {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     try {
-      ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name + "';").executeQuery();
+      ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+            + "';").executeQuery();
       return rs.next();
     }
     catch (SQLException e) {
@@ -75,7 +58,8 @@ public class DataStore {
   private static boolean uuidCached(String uuid) {
     uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
     try {
-      ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid + "';").executeQuery();
+      ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+            + "';").executeQuery();
       return rs.next();
     }
     catch (SQLException e) {
@@ -86,7 +70,18 @@ public class DataStore {
 
   private static boolean needsUpdate(String user) {
     user = user.toLowerCase().replaceAll("[^a-z0-9_]", "");
-    return !yml.contains(user) || yml.getLong(user) < System.currentTimeMillis() - MCUUID.instance.updateFrequency;
+    long time = 0L;
+    try {
+      ResultSet rs = connection.prepareStatement("SELECT time FROM retrieved WHERE user='" + user
+            + "';").executeQuery();
+      if (rs.next()) {
+        time = rs.getLong("time");
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+    return time < System.currentTimeMillis() - MCUUID.instance.updateFrequency;
   }
 
   public static String getName(String uuid) throws IOException, UUIDNotFoundException {
@@ -231,14 +226,15 @@ public class DataStore {
         connection.createStatement().execute("REPLACE INTO data (uuid, name, time) VALUES ('" + uuid + "','"
               + nameEntry.name + "'," + nameEntry.changedToAt + ");");
         Logger.write("Updated UUID '" + uuid + "' with nameEntry '" + nameEntry + "'");
-        yml.set(nameEntry.name, System.currentTimeMillis());
+        connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + nameEntry.name
+              + "'," + System.currentTimeMillis() + ");");
       }
-      yml.set(uuid, System.currentTimeMillis());
+      connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + uuid + "',"
+            + System.currentTimeMillis() + ");");
     }
     catch (SQLException e) {
       e.printStackTrace();
     }
-    save();
   }
 
   public static void updateName(String name) throws IOException, UserNotFoundException {
@@ -254,10 +250,13 @@ public class DataStore {
     }
     try {
       updateUUID(uuid);
-      yml.set(name, System.currentTimeMillis());
+      connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + name + "',"
+            + System.currentTimeMillis() + ");");
     } catch (UUIDNotFoundException e) {
       throw new UserNotFoundException(name);
     }
-    save();
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
   }
 }
