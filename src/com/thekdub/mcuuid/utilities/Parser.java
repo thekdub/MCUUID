@@ -1,6 +1,6 @@
 package com.thekdub.mcuuid.utilities;
 
-import com.thekdub.mcuuid.objects.Name;
+import com.thekdub.mcuuid.objects.NameEntry;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -11,28 +11,28 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Parser {
-  static LinkedHashSet<Name> parseNameRequest(String str) {
+  static LinkedHashSet<NameEntry> parseNameRequest(String str) {
     str = str.substring(1, str.length() - 1).replace("\"", "");
-    LinkedHashSet<Name> names = new LinkedHashSet<Name>();
+    LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<NameEntry>();
     if (str.contains("},{")) {
       for (String s : str.split("[}],[{]")) {
-        names.add(makeName(s));
+        nameEntries.add(makeName(s));
       }
     }
     else {
-      names.add(makeName(str.substring(1, str.length() - 1)));
+      nameEntries.add(makeName(str.substring(1, str.length() - 1)));
     }
-    return names;
+    return nameEntries;
   }
 
-  private static Name makeName(String str) {
+  private static NameEntry makeName(String str) {
     str = str.replaceAll("[\"{}]", "");
     if (str.contains(",")) {
       String[] split = str.split(",");
-      return new Name(split[0].split(":")[1], Long.parseLong(split[1].split(":")[1]));
+      return new NameEntry(split[0].split(":")[1], Long.parseLong(split[1].split(":")[1]));
     }
     else {
-      return new Name(str.split(":")[1]);
+      return new NameEntry(str.split(":")[1]);
     }
   }
 
