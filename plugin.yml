@@ -5,7 +5,7 @@ author: thekdub
 website: http://unknowntekkit.com
 commands:
   mcuuid:
-    description: Retrieve a user's UUID or name using their name or UUID respectively.
+    description: Retrieve a user's UUID or namr using their name or UUID respectively.
     aliases: [finduuid,minecraftuuid]
     permission: mcuuid.search
     usage: /MCUUID (Name / UUID / .reload) [.history] [.update]

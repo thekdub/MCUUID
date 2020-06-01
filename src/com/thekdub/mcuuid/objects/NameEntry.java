@@ -1,16 +1,16 @@
 package com.thekdub.mcuuid.objects;
 
-public class Name {
+public class NameEntry {
   public final String name;
   public final long changedToAt;
 
-  public Name(String name) {
-    this.name = name;
+  public NameEntry(String name) {
+    this.name = name.toLowerCase();
     this.changedToAt = 0L;
   }
 
-  public Name(String name, long changedToAt) {
-    this.name = name;
+  public NameEntry(String name, long changedToAt) {
+    this.name = name.toLowerCase();
     this.changedToAt = changedToAt;
   }
 

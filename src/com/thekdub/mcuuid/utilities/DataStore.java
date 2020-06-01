@@ -3,173 +3,229 @@ package com.thekdub.mcuuid.utilities;
 import com.thekdub.mcuuid.MCUUID;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
-import com.thekdub.mcuuid.objects.Name;
-import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.YamlConfiguration;
+import com.thekdub.mcuuid.objects.NameEntry;
+import com.thekdub.mcuuid.objects.UUIDEntry;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.*;
 import java.util.LinkedHashSet;
 
 public class DataStore {
 
-  private static File file;
-  private static YamlConfiguration yml;
+  private static Connection connection = null;
 
-  /* File Formatting:
-  uuid:
-    $uuid:
-      name: $name
-      cached: $cached
-      history:
-        $name: $set
-        $name2: $set2
-        ...
-  name:
-    $name:
-      uuid: $uuid
-      cached: $cached
-
-     Class Structure:
-     init() -- Initializes the cache file if not initialized.
-     save() -- Saves the cache file.
-     scrub() -- Scans through cache and removes expired entries.
-     boolean nameCached(name) -- Returns true if name is cached
-     boolean uuidCached(uuid) -- Returns true if uuid is cached
-     String getUUID(name) -- Returns uuid
-     String getName(uuid) -- Returns name
-     Set<Name> getNameHistory(uuid) -- Returns a set of Name objects
-     updateUUID(uuid) -- Update's the uuid's cached information
-     updateName(name) -- Retrieves the user's UUID then calls updateUUID(uuid)
-   */
-
-
-  private static void init() {
-    if (file == null) {
-      file = new File(MCUUID.instance.getDataFolder() + File.separator + "uuidCache.yml");
+  public static void init() {
+    if (connection == null) {
+      try {
+        connection = DriverManager.getConnection("jdbc:sqlite:" + MCUUID.instance.getDataFolder() + File.separator
+              + "uuid.db");
+        connection.createStatement().execute("CREATE TABLE IF NOT EXISTS data (uuid TEXT, name TEXT, " +
+              "time INTEGER, PRIMARY KEY(uuid, name));");
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
     }
-    if (yml == null)
-      yml = YamlConfiguration.loadConfiguration(file);
   }
 
   public static void save() {
-    init();
     try {
-      yml.save(file);
-    } catch (IOException e) {
+      connection.close();
+      connection = null;
+    }
+    catch (SQLException e) {
       e.printStackTrace();
     }
   }
 
-  public static void scrub() {
-    init();
-    for (String uuid : yml.getConfigurationSection("uuid").getKeys(false)) {
-      if (!uuidCached(uuid)) {
-        yml.set("uuid." + uuid, null);
-      }
-    }
-    for (String name : yml.getConfigurationSection("name").getKeys(false)) {
-      if (!nameCached(name)) {
-        yml.set("name." + name, null);
-      }
-    }
-    save();
-  }
-
   private static boolean nameCached(String name) {
-    name = name.toLowerCase();
-    init();
-    return yml.contains("name." + name) && yml.getLong("name." + name + ".cached") >=
-          System.currentTimeMillis() - MCUUID.instance.updateFrequency;
+    name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
+    try {
+      ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name + "';").executeQuery();
+      if (rs.next()) {
+        return true;
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+    return false;
   }
 
   private static boolean uuidCached(String uuid) {
-    init();
-    return yml.contains("uuid." + uuid) && yml.getLong("uuid." + uuid + ".cached") >=
-          System.currentTimeMillis() - MCUUID.instance.updateFrequency;
+    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
+    try {
+      ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid + "';").executeQuery();
+      if (rs.next()) {
+        return true;
+      }
+    }
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
+    return false;
   }
 
   public static String getName(String uuid) throws IOException, UUIDNotFoundException {
+    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
     if (uuidCached(uuid)) {
-      return yml.getString("uuid." + uuid + ".name");
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery();
+        if (rs.next()) {
+          return rs.getString("name");
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
     }
     else {
       updateUUID(uuid);
-      return yml.getString("uuid." + uuid + ".name");
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery();
+        if (rs.next()) {
+          return rs.getString("name");
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
     }
+    throw new UUIDNotFoundException(uuid);
   }
 
   public static String getUUID(String name) throws IOException, UserNotFoundException {
-    name = name.toLowerCase();
+    name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     if (nameCached(name)) {
-      return yml.getString("name." + name + ".uuid");
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery();
+        if (rs.next()) {
+          return rs.getString("uuid");
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
     }
     else {
-      updateName(name);
-      return yml.getString("name." + name + ".uuid");
+      System.out.println("getUUID updated");
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery();
+        if (rs.next()) {
+          return rs.getString("uuid");
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
     }
+    throw new UserNotFoundException(name);
   }
 
-  public static LinkedHashSet<Name> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
-    if (uuidCached(uuid)) { // TODO: Add sorting of name history
-      ConfigurationSection history = yml.getConfigurationSection("uuid." + uuid + ".history");
-      LinkedHashSet<Name> names = new LinkedHashSet<>();
-      for (String name : history.getKeys(false)) {
-        names.add(new Name(name, history.getLong(name)));
+  public static LinkedHashSet<NameEntry> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
+    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
+    if (uuidCached(uuid)) {
+      LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery();
+        while (rs.next()) {
+          nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
+        }
       }
-      return names;
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
+      return nameEntries;
     }
     else {
       updateUUID(uuid);
-      ConfigurationSection history = yml.getConfigurationSection("uuid." + uuid + ".history");
-      LinkedHashSet<Name> names = new LinkedHashSet<>();
-      for (String name : history.getKeys(false)) {
-        names.add(new Name(name, history.getLong(name)));
+      LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery();
+        while (rs.next()) {
+          nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
+        }
       }
-      return names;
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
+      return nameEntries;
+    }
+  }
+
+  public static LinkedHashSet<UUIDEntry> getUUIDHistory(String name) throws IOException, UUIDNotFoundException {
+    name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
+    if (uuidCached(name)) {
+      LinkedHashSet<UUIDEntry> nameEntries = new LinkedHashSet<>();
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery();
+        while (rs.next()) {
+          nameEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
+      return nameEntries;
+    }
+    else {
+      updateUUID(name);
+      LinkedHashSet<UUIDEntry> nameEntries = new LinkedHashSet<>();
+      try {
+        ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery();
+        while (rs.next()) {
+          nameEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+        }
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
+      return nameEntries;
     }
   }
 
   public static void updateUUID(String uuid) throws IOException, UUIDNotFoundException {
-    init();
-    String name = "";
-    long changedToAt = -1;
-    LinkedHashSet<Name> names = Parser.parseNameRequest(NetRequest.fetchNames(uuid));
-    for (Name n : names) {
-      if (n.changedToAt > changedToAt || changedToAt == -1) {
-        name = n.name.toLowerCase();
-        changedToAt = n.changedToAt;
-      }
-    }
+    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
     if (uuid.length() != 32) {
       Logger.write("Failed to update UUID '" + uuid + "'. Invalid UUID");
       throw new UUIDNotFoundException(uuid);
     }
-    if (name.length() > 16 || name.length() == 0) {
-      Logger.write("Failed to update UUID '" + uuid + "'. Retrieved invalid name '" + name + "'");
+    LinkedHashSet<NameEntry> nameEntries = Parser.parseNameRequest(NetRequest.fetchNames(uuid));
+    if (nameEntries.size() == 0) {
+      Logger.write("Failed to update UUID '" + uuid + "'. Could not retrieve uuid data");
       throw new UUIDNotFoundException(uuid);
     }
-    Logger.write("Updated UUID '" + uuid + "' with name '" + name + "'");
-    yml.set("uuid." + uuid + ".name", name);
-    yml.set("uuid." + uuid + ".cached", System.currentTimeMillis());
-    yml.set("uuid." + uuid + ".history", null);
-    for (Name n : names) {
-      yml.set("uuid." + uuid + ".history." + n.name, n.changedToAt);
+    try {
+      for (NameEntry nameEntry : nameEntries) {
+        connection.createStatement().execute("REPLACE INTO data (uuid, name, time) VALUES ('" + uuid + "','"
+              + nameEntry.name + "'," + nameEntry.changedToAt + ");");
+        Logger.write("Updated UUID '" + uuid + "' with nameEntry '" + nameEntry + "'");
+      }
     }
-    yml.set("name." + name + ".uuid", uuid);
-    yml.set("name." + name + ".cached", System.currentTimeMillis());
+    catch (SQLException e) {
+      e.printStackTrace();
+    }
     save();
   }
 
   public static void updateName(String name) throws IOException, UserNotFoundException {
-    name = name.toLowerCase();
+    name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     String uuid = Parser.parseUUIDRequest(NetRequest.fetchUUID(name, System.currentTimeMillis()));
     if (name.length() > 16 || name.length() == 0) {
-      Logger.write("Failed to update name '" + name + "'. Invalid name");
+      Logger.write("Failed to update uuid '" + name + "'. Invalid uuid");
       throw new UserNotFoundException(name);
     }
     if (uuid.length() != 32) {
-      Logger.write("Failed to update name '" + name + "'. Retrieved invalid UUID '" + uuid + "'");
+      Logger.write("Failed to update uuid '" + name + "'. Retrieved invalid UUID '" + uuid + "'");
       throw new UserNotFoundException(name);
     }
     try {
