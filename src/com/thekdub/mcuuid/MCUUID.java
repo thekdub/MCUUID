@@ -3,6 +3,7 @@ package com.thekdub.mcuuid;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
+import com.thekdub.mcuuid.objects.UUIDEntry;
 import com.thekdub.mcuuid.utilities.DataStore;
 import com.thekdub.mcuuid.utilities.Logger;
 import com.thekdub.mcuuid.utilities.Parser;
@@ -19,6 +20,7 @@ import java.util.logging.Level;
 
 public class MCUUID extends JavaPlugin {
   public static MCUUID instance;
+  public long updateFrequency = 0L;
   public long failureCooldown = 0L;
 
   public void onEnable() {
@@ -28,12 +30,13 @@ public class MCUUID extends JavaPlugin {
       saveDefaultConfig();
     }
     DataStore.init();
+    updateFrequency = Parser.parseTime(getConfig().getString("UUID_Update_Frequency", "7d"));
     failureCooldown = Parser.parseTime(getConfig().getString("API_Failure_Cooldown", "1m"));
     Logger.write("MCUUID Loaded Successfully.");
   }
 
   public void onDisable() {
-    DataStore.save();
+    DataStore.close();
     Logger.save();
     Logger.write("MCUUID Unloaded Successfully.");
   }
@@ -50,9 +53,9 @@ public class MCUUID extends JavaPlugin {
     if (cmd.getLabel().equalsIgnoreCase("mcuuid")) {
       if (args.length == 0) { //Display How To Use
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "&8[&2MC&6UUID&8] &7"
-              + "Use &b/MCUUID (UUID) &7to find a user's uuid from a UUID"));
+              + "Use &b/MCUUID (UUID) &7to find a user's name from a UUID"));
         sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "    &7"
-              + "Use &b/MCUUID (uuid) &7to find a user's UUID from a uuid"));
+              + "Use &b/MCUUID (name) &7to find a user's UUID from a name"));
       }
       else { //Process Arguments
         String arg = args[0];
@@ -82,16 +85,27 @@ public class MCUUID extends JavaPlugin {
               UUIDAPI.updateName(arg);
             }
             if (history) {
-              LinkedHashSet<NameEntry> nameEntryHistory = UUIDAPI.getNameHistory(UUIDAPI.getUUID(arg));
-              if (nameEntryHistory == null) {
+              LinkedHashSet<NameEntry> nameHistory = UUIDAPI.getNameHistory(UUIDAPI.getUUID(arg));
+              if (nameHistory == null) {
                 throw new UserNotFoundException(arg);
               }
               sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&8[&2MC&6UUID&8] &7The uuid history of the user '&b" + arg + "&7' is:"));
-              for (NameEntry nameEntry : nameEntryHistory) {
+                    "&8[&2MC&6UUID&8] &7The name history of the user '&b" + arg + "&7' is:"));
+              for (NameEntry name : nameHistory) {
                 sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "  &b> &7"
-                      + nameEntry.name + " &b@ &7" + (nameEntry.changedToAt > 0 ?
-                      Parser.parseMillis(nameEntry.changedToAt, "yyyy-MM-dd HH:mm") : "creation")));
+                      + name.name + " &b@ &7" + (name.changedToAt > 0 ?
+                      Parser.parseMillis(name.changedToAt, "yyyy-MM-dd HH:mm") : "creation")));
+              }
+              LinkedHashSet<UUIDEntry> uuidHistory = UUIDAPI.getUUIDHistory(arg);
+              if (uuidHistory == null) {
+                throw new UserNotFoundException(arg);
+              }
+              sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
+                    "&8[&2MC&6UUID&8] &7The UUIDs associated with the name '&b" + arg + "&7' are:"));
+              for (UUIDEntry uuid : uuidHistory) {
+                sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "  &b> &7"
+                      + uuid.uuid + " &b@ &7" + (uuid.changedToAt > 0 ?
+                      Parser.parseMillis(uuid.changedToAt, "yyyy-MM-dd HH:mm") : "creation")));
               }
             }
             else {
@@ -112,22 +126,22 @@ public class MCUUID extends JavaPlugin {
               UUIDAPI.updateUUID(arg);
             }
             if (history) {
-              LinkedHashSet<NameEntry> nameEntryHistory = UUIDAPI.getNameHistory(arg);
-              if (nameEntryHistory == null) {
+              LinkedHashSet<NameEntry> nameHistory = UUIDAPI.getNameHistory(arg);
+              if (nameHistory == null) {
                 throw new UUIDNotFoundException(arg);
               }
               sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&8[&2MC&6UUID&8] &7The uuid history of the user '&b" + UUIDAPI.getName(arg)
+                    "&8[&2MC&6UUID&8] &7The name history of the UUID '&b" + arg
                           + "&7' is:"));
-              for (NameEntry nameEntry : nameEntryHistory) {
+              for (NameEntry name : nameHistory) {
                 sender.sendMessage(ChatColor.translateAlternateColorCodes('&', "  &b> &7"
-                      + nameEntry.name + " &b@ &7" + (nameEntry.changedToAt > 0 ?
-                      Parser.parseMillis(nameEntry.changedToAt, "yyyy-MM-dd HH:mm") : "creation")));
+                      + name.name + " &b@ &7" + (name.changedToAt > 0 ?
+                      Parser.parseMillis(name.changedToAt, "yyyy-MM-dd HH:mm") : "creation")));
               }
             }
             else {
               sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
-                    "&8[&2MC&6UUID&8] &7The uuid of the UUID '&b" + arg + "&7' is '&b"
+                    "&8[&2MC&6UUID&8] &7The name of the UUID '&b" + arg + "&7' is '&b"
                           + UUIDAPI.getName(arg) + "&7'"));
             }
           } catch (IOException e) {
