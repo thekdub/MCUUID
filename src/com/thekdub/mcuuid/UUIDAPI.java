@@ -3,6 +3,7 @@ package com.thekdub.mcuuid;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
+import com.thekdub.mcuuid.objects.UUIDEntry;
 import com.thekdub.mcuuid.utilities.DataStore;
 import org.bukkit.entity.Player;
 
@@ -35,6 +36,10 @@ public class UUIDAPI {
 
   public static LinkedHashSet<NameEntry> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
     return DataStore.getNameHistory(uuid);
+  }
+
+  public static LinkedHashSet<UUIDEntry> getUUIDHistory(String name) throws IOException, UserNotFoundException {
+    return DataStore.getUUIDHistory(name);
   }
 
 }

@@ -5,6 +5,7 @@ import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
 import com.thekdub.mcuuid.objects.UUIDEntry;
+import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,14 +15,22 @@ import java.util.LinkedHashSet;
 public class DataStore {
 
   private static Connection connection = null;
+  private static File file;
+  private static YamlConfiguration yml;
 
   public static void init() {
+    if (file == null) {
+      file = new File(MCUUID.instance.getDataFolder() + File.separator + "updateData.yml");
+    }
+    if (yml == null) {
+      yml = YamlConfiguration.loadConfiguration(file);
+    }
     if (connection == null) {
       try {
         connection = DriverManager.getConnection("jdbc:sqlite:" + MCUUID.instance.getDataFolder() + File.separator
               + "uuid.db");
         connection.createStatement().execute("CREATE TABLE IF NOT EXISTS data (uuid TEXT, name TEXT, " +
-              "time INTEGER, PRIMARY KEY(uuid, name));");
+              "time INTEGER, PRIMARY KEY(uuid, name, time));");
       }
       catch (SQLException e) {
         e.printStackTrace();
@@ -30,6 +39,18 @@ public class DataStore {
   }
 
   public static void save() {
+    try {
+      yml.save(file);
+    }
+    catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void close() {
+    save();
+    file = null;
+    yml = null;
     try {
       connection.close();
       connection = null;
@@ -43,9 +64,7 @@ public class DataStore {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     try {
       ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name + "';").executeQuery();
-      if (rs.next()) {
-        return true;
-      }
+      return rs.next();
     }
     catch (SQLException e) {
       e.printStackTrace();
@@ -57,9 +76,7 @@ public class DataStore {
     uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
     try {
       ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid + "';").executeQuery();
-      if (rs.next()) {
-        return true;
-      }
+      return rs.next();
     }
     catch (SQLException e) {
       e.printStackTrace();
@@ -67,9 +84,14 @@ public class DataStore {
     return false;
   }
 
+  private static boolean needsUpdate(String user) {
+    user = user.toLowerCase().replaceAll("[^a-z0-9_]", "");
+    return !yml.contains(user) || yml.getLong(user) < System.currentTimeMillis() - MCUUID.instance.updateFrequency;
+  }
+
   public static String getName(String uuid) throws IOException, UUIDNotFoundException {
     uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
-    if (uuidCached(uuid)) {
+    if (uuidCached(uuid) && !needsUpdate(uuid)) {
       try {
         ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
               + "' ORDER BY time DESC;").executeQuery();
@@ -99,7 +121,7 @@ public class DataStore {
 
   public static String getUUID(String name) throws IOException, UserNotFoundException {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
-    if (nameCached(name)) {
+    if (nameCached(name) && !needsUpdate(name)) {
       try {
         ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
               + "' ORDER BY time DESC;").executeQuery();
@@ -112,7 +134,7 @@ public class DataStore {
       }
     }
     else {
-      System.out.println("getUUID updated");
+      updateName(name);
       try {
         ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
               + "' ORDER BY time DESC;").executeQuery();
@@ -129,7 +151,7 @@ public class DataStore {
 
   public static LinkedHashSet<NameEntry> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
     uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
-    if (uuidCached(uuid)) {
+    if (uuidCached(uuid) && !needsUpdate(uuid)) {
       LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
       try {
         ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
@@ -160,36 +182,36 @@ public class DataStore {
     }
   }
 
-  public static LinkedHashSet<UUIDEntry> getUUIDHistory(String name) throws IOException, UUIDNotFoundException {
+  public static LinkedHashSet<UUIDEntry> getUUIDHistory(String name) throws IOException, UserNotFoundException {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
-    if (uuidCached(name)) {
-      LinkedHashSet<UUIDEntry> nameEntries = new LinkedHashSet<>();
+    if (nameCached(name) && !needsUpdate(name)) {
+      LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
       try {
         ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
               + "' ORDER BY time DESC;").executeQuery();
         while (rs.next()) {
-          nameEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+          uuidEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
         }
       }
       catch (SQLException e) {
         e.printStackTrace();
       }
-      return nameEntries;
+      return uuidEntries;
     }
     else {
-      updateUUID(name);
-      LinkedHashSet<UUIDEntry> nameEntries = new LinkedHashSet<>();
+      updateName(name);
+      LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
       try {
         ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
               + "' ORDER BY time DESC;").executeQuery();
         while (rs.next()) {
-          nameEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+          uuidEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
         }
       }
       catch (SQLException e) {
         e.printStackTrace();
       }
-      return nameEntries;
+      return uuidEntries;
     }
   }
 
@@ -209,7 +231,9 @@ public class DataStore {
         connection.createStatement().execute("REPLACE INTO data (uuid, name, time) VALUES ('" + uuid + "','"
               + nameEntry.name + "'," + nameEntry.changedToAt + ");");
         Logger.write("Updated UUID '" + uuid + "' with nameEntry '" + nameEntry + "'");
+        yml.set(nameEntry.name, System.currentTimeMillis());
       }
+      yml.set(uuid, System.currentTimeMillis());
     }
     catch (SQLException e) {
       e.printStackTrace();
@@ -221,17 +245,19 @@ public class DataStore {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     String uuid = Parser.parseUUIDRequest(NetRequest.fetchUUID(name, System.currentTimeMillis()));
     if (name.length() > 16 || name.length() == 0) {
-      Logger.write("Failed to update uuid '" + name + "'. Invalid uuid");
+      Logger.write("Failed to update name '" + name + "'. Invalid name");
       throw new UserNotFoundException(name);
     }
     if (uuid.length() != 32) {
-      Logger.write("Failed to update uuid '" + name + "'. Retrieved invalid UUID '" + uuid + "'");
+      Logger.write("Failed to update name '" + name + "'. Retrieved invalid UUID '" + uuid + "'");
       throw new UserNotFoundException(name);
     }
     try {
       updateUUID(uuid);
+      yml.set(name, System.currentTimeMillis());
     } catch (UUIDNotFoundException e) {
       throw new UserNotFoundException(name);
     }
+    save();
   }
 }
