@@ -50,8 +50,9 @@ public class DataStore {
 
   private static boolean nameCached(String name) {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
-    try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-            + "';").executeQuery()) {
+    try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+            + "';");
+          ResultSet rs = ps.executeQuery()) {
       return rs.next();
     }
     catch (SQLException e) {
@@ -62,8 +63,9 @@ public class DataStore {
 
   private static boolean uuidCached(String uuid) throws InvalidUUIDException {
     uuid = Parser.formatUUID(uuid);
-    try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-            + "';").executeQuery()) {
+    try (PreparedStatement ps = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+            + "';");
+          ResultSet rs = ps.executeQuery()) {
       return rs.next();
     }
     catch (SQLException e) {
@@ -75,8 +77,9 @@ public class DataStore {
   private static boolean needsUpdate(String user) {
     user = user.toLowerCase().replaceAll("[^a-z0-9_-]", "");
     long time = 0L;
-    try (ResultSet rs = connection.prepareStatement("SELECT time FROM retrieved WHERE user='" + user
-            + "';").executeQuery()) {
+    try (PreparedStatement ps = connection.prepareStatement("SELECT time FROM retrieved WHERE user='" + user
+            + "';");
+          ResultSet rs = ps.executeQuery()) {
       if (rs.next()) {
         time = rs.getLong("time");
       }
@@ -90,8 +93,9 @@ public class DataStore {
   public static String getName(String uuid) throws IOException, UUIDNotFoundException, InvalidUUIDException {
     uuid = Parser.formatUUID(uuid);
     if (uuidCached(uuid) && !needsUpdate(uuid)) {
-      try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         if (rs.next()) {
           return rs.getString("name");
         }
@@ -102,8 +106,9 @@ public class DataStore {
     }
     else {
       updateUUID(uuid);
-      try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         if (rs.next()) {
           return rs.getString("name");
         }
@@ -118,8 +123,9 @@ public class DataStore {
   public static String getUUID(String name) throws IOException, UserNotFoundException {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     if (nameCached(name) && !needsUpdate(name)) {
-      try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         if (rs.next()) {
           return rs.getString("uuid");
         }
@@ -130,8 +136,9 @@ public class DataStore {
     }
     else {
       updateName(name);
-      try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         if (rs.next()) {
           return rs.getString("uuid");
         }
@@ -148,8 +155,9 @@ public class DataStore {
     uuid = Parser.formatUUID(uuid);
     if (uuidCached(uuid) && !needsUpdate(uuid)) {
       LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
-      try (ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
           nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
         }
@@ -162,8 +170,9 @@ public class DataStore {
     else {
       updateUUID(uuid);
       LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
-      try (ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
           nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
         }
@@ -179,8 +188,9 @@ public class DataStore {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     if (nameCached(name) && !needsUpdate(name)) {
       LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
-      try (ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
           try {
             uuidEntries.add(new UUIDEntry(Parser.parseUUID(rs.getString("uuid")),
@@ -199,8 +209,9 @@ public class DataStore {
     else {
       updateName(name);
       LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
-      try (ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery()) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;");
+            ResultSet rs = ps.executeQuery()) {
         while (rs.next()) {
           try {
             uuidEntries.add(new UUIDEntry(Parser.parseUUID(rs.getString("uuid")),
