@@ -1,11 +1,11 @@
 package com.thekdub.mcuuid.utilities;
 
 import com.thekdub.mcuuid.MCUUID;
+import com.thekdub.mcuuid.exceptions.InvalidUUIDException;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
 import com.thekdub.mcuuid.objects.UUIDEntry;
-import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,10 +21,16 @@ public class DataStore {
       try {
         connection = DriverManager.getConnection("jdbc:sqlite:" + MCUUID.instance.getDataFolder() + File.separator
               + "uuid.db");
-        connection.createStatement().execute("CREATE TABLE IF NOT EXISTS data (uuid TEXT, name TEXT, " +
-              "time INTEGER, PRIMARY KEY(uuid, name, time));");
-        connection.createStatement().execute("CREATE TABLE IF NOT EXISTS retrieved (user TEXT, time INTEGER, " +
-              "PRIMARY KEY(user));");
+      }
+      catch (SQLException e) {
+        e.printStackTrace();
+      }
+      try (PreparedStatement data = connection.prepareStatement("CREATE TABLE IF NOT EXISTS data (uuid TEXT, " +
+            "name TEXT, time INTEGER, PRIMARY KEY(uuid, name, time));");
+      PreparedStatement retrieved = connection.prepareStatement("CREATE TABLE IF NOT EXISTS retrieved (user TEXT, " +
+            "time INTEGER, PRIMARY KEY(user));")) {
+        data.execute();
+        retrieved.execute();
       }
       catch (SQLException e) {
         e.printStackTrace();
@@ -44,9 +50,8 @@ public class DataStore {
 
   private static boolean nameCached(String name) {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
-    try {
-      ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-            + "';").executeQuery();
+    try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+            + "';").executeQuery()) {
       return rs.next();
     }
     catch (SQLException e) {
@@ -55,11 +60,10 @@ public class DataStore {
     return false;
   }
 
-  private static boolean uuidCached(String uuid) {
-    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
-    try {
-      ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-            + "';").executeQuery();
+  private static boolean uuidCached(String uuid) throws InvalidUUIDException {
+    uuid = Parser.formatUUID(uuid);
+    try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+            + "';").executeQuery()) {
       return rs.next();
     }
     catch (SQLException e) {
@@ -69,11 +73,10 @@ public class DataStore {
   }
 
   private static boolean needsUpdate(String user) {
-    user = user.toLowerCase().replaceAll("[^a-z0-9_]", "");
+    user = user.toLowerCase().replaceAll("[^a-z0-9_-]", "");
     long time = 0L;
-    try {
-      ResultSet rs = connection.prepareStatement("SELECT time FROM retrieved WHERE user='" + user
-            + "';").executeQuery();
+    try (ResultSet rs = connection.prepareStatement("SELECT time FROM retrieved WHERE user='" + user
+            + "';").executeQuery()) {
       if (rs.next()) {
         time = rs.getLong("time");
       }
@@ -84,12 +87,11 @@ public class DataStore {
     return time < System.currentTimeMillis() - MCUUID.instance.updateFrequency;
   }
 
-  public static String getName(String uuid) throws IOException, UUIDNotFoundException {
-    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
+  public static String getName(String uuid) throws IOException, UUIDNotFoundException, InvalidUUIDException {
+    uuid = Parser.formatUUID(uuid);
     if (uuidCached(uuid) && !needsUpdate(uuid)) {
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery()) {
         if (rs.next()) {
           return rs.getString("name");
         }
@@ -100,9 +102,8 @@ public class DataStore {
     }
     else {
       updateUUID(uuid);
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT name FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery()) {
         if (rs.next()) {
           return rs.getString("name");
         }
@@ -117,9 +118,8 @@ public class DataStore {
   public static String getUUID(String name) throws IOException, UserNotFoundException {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     if (nameCached(name) && !needsUpdate(name)) {
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery()) {
         if (rs.next()) {
           return rs.getString("uuid");
         }
@@ -130,9 +130,8 @@ public class DataStore {
     }
     else {
       updateName(name);
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT uuid FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery()) {
         if (rs.next()) {
           return rs.getString("uuid");
         }
@@ -144,13 +143,13 @@ public class DataStore {
     throw new UserNotFoundException(name);
   }
 
-  public static LinkedHashSet<NameEntry> getNameHistory(String uuid) throws IOException, UUIDNotFoundException {
-    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
+  public static LinkedHashSet<NameEntry> getNameHistory(String uuid) throws IOException, UUIDNotFoundException,
+        InvalidUUIDException {
+    uuid = Parser.formatUUID(uuid);
     if (uuidCached(uuid) && !needsUpdate(uuid)) {
       LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery()) {
         while (rs.next()) {
           nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
         }
@@ -163,9 +162,8 @@ public class DataStore {
     else {
       updateUUID(uuid);
       LinkedHashSet<NameEntry> nameEntries = new LinkedHashSet<>();
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT name,time FROM data WHERE uuid='" + uuid
+              + "' ORDER BY time DESC;").executeQuery()) {
         while (rs.next()) {
           nameEntries.add(new NameEntry(rs.getString("name"), rs.getLong("time")));
         }
@@ -181,11 +179,16 @@ public class DataStore {
     name = name.toLowerCase().replaceAll("[^a-z0-9_]", "");
     if (nameCached(name) && !needsUpdate(name)) {
       LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery()) {
         while (rs.next()) {
-          uuidEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+          try {
+            uuidEntries.add(new UUIDEntry(Parser.parseUUID(rs.getString("uuid")),
+                  rs.getLong("time")));
+          }
+          catch (InvalidUUIDException e) {
+            e.printStackTrace();
+          }
         }
       }
       catch (SQLException e) {
@@ -196,11 +199,16 @@ public class DataStore {
     else {
       updateName(name);
       LinkedHashSet<UUIDEntry> uuidEntries = new LinkedHashSet<>();
-      try {
-        ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
-              + "' ORDER BY time DESC;").executeQuery();
+      try (ResultSet rs = connection.prepareStatement("SELECT uuid,time FROM data WHERE name='" + name
+              + "' ORDER BY time DESC;").executeQuery()) {
         while (rs.next()) {
-          uuidEntries.add(new UUIDEntry(rs.getString("uuid"), rs.getLong("time")));
+          try {
+            uuidEntries.add(new UUIDEntry(Parser.parseUUID(rs.getString("uuid")),
+                  rs.getLong("time")));
+          }
+          catch (InvalidUUIDException e) {
+            e.printStackTrace();
+          }
         }
       }
       catch (SQLException e) {
@@ -210,9 +218,9 @@ public class DataStore {
     }
   }
 
-  public static void updateUUID(String uuid) throws IOException, UUIDNotFoundException {
-    uuid = uuid.toLowerCase().replaceAll("[^a-z0-9]", "");
-    if (uuid.length() != 32) {
+  public static void updateUUID(String uuid) throws IOException, UUIDNotFoundException, InvalidUUIDException {
+    uuid = Parser.formatUUID(uuid);
+    if (uuid.length() != 36) {
       Logger.write("Failed to update UUID '" + uuid + "'. Invalid UUID");
       throw new UUIDNotFoundException(uuid);
     }
@@ -221,18 +229,26 @@ public class DataStore {
       Logger.write("Failed to update UUID '" + uuid + "'. Could not retrieve uuid data");
       throw new UUIDNotFoundException(uuid);
     }
-    try {
-      for (NameEntry nameEntry : nameEntries) {
-        connection.createStatement().execute("REPLACE INTO data (uuid, name, time) VALUES ('" + uuid + "','"
-              + nameEntry.name + "'," + nameEntry.changedToAt + ");");
+    for (NameEntry nameEntry : nameEntries) {
+      try (PreparedStatement data = connection.prepareStatement("REPLACE INTO DATA (uuid, name, time) VALUES (" +
+            "'" + uuid + "','" +
+            nameEntry.name + "'," +
+            nameEntry.changedToAt + ");");
+            PreparedStatement retrieved = connection.prepareStatement("REPLACE INTO retrieved (user, time) VALUES (" +
+                  "'" + nameEntry.name + "'," +
+                  System.currentTimeMillis() + ");")) {
+        data.execute();
         Logger.write("Updated UUID '" + uuid + "' with nameEntry '" + nameEntry + "'");
-        connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + nameEntry.name
-              + "'," + System.currentTimeMillis() + ");");
+        retrieved.execute();
+      } catch (SQLException e) {
+        e.printStackTrace();
       }
-      connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + uuid + "',"
-            + System.currentTimeMillis() + ");");
     }
-    catch (SQLException e) {
+    try (PreparedStatement statement = connection.prepareStatement("REPLACE INTO retrieved (user, time) VALUES (" +
+          "'" + uuid + "'," +
+          System.currentTimeMillis() + ");")) {
+      statement.execute();
+    } catch (SQLException e) {
       e.printStackTrace();
     }
   }
@@ -244,15 +260,15 @@ public class DataStore {
       Logger.write("Failed to update name '" + name + "'. Invalid name");
       throw new UserNotFoundException(name);
     }
-    if (uuid.length() != 32) {
+    if (uuid.length() != 36) {
       Logger.write("Failed to update name '" + name + "'. Retrieved invalid UUID '" + uuid + "'");
       throw new UserNotFoundException(name);
     }
-    try {
+    try (PreparedStatement statement = connection.prepareStatement("REPLACE INTO retrieved (user, time) VALUES ('"
+          + name + "'," + System.currentTimeMillis() + ");")) {
       updateUUID(uuid);
-      connection.createStatement().execute("REPLACE INTO retrieved (user, time) VALUES ('" + name + "',"
-            + System.currentTimeMillis() + ");");
-    } catch (UUIDNotFoundException e) {
+      statement.execute();
+    } catch (UUIDNotFoundException | InvalidUUIDException e) {
       throw new UserNotFoundException(name);
     }
     catch (SQLException e) {
