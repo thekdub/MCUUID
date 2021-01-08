@@ -1,6 +1,6 @@
 name: mcuuid
 main: com.thekdub.mcuuid.MCUUID
-version: 1.1.1
+version: 1.1.3
 author: thekdub
 website: http://unknowntekkit.com
 commands:
