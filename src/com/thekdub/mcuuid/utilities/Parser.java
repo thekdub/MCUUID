@@ -1,12 +1,16 @@
 package com.thekdub.mcuuid.utilities;
 
+import com.thekdub.mcuuid.exceptions.InvalidUUIDException;
+import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
+import org.omg.CORBA.DynAnyPackage.Invalid;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.TimeZone;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -38,7 +42,13 @@ public class Parser {
 
   static String parseUUIDRequest(String str) {
     str = str.replaceAll("[\"{}]", "").split(",")[1];
-    return str.substring(3);
+    try {
+      return formatUUID(str.substring(3));
+    }
+    catch (InvalidUUIDException e) {
+      e.printStackTrace();
+    }
+    return str;
   }
 
   public static long parseTime(String str) {
@@ -102,5 +112,23 @@ public class Parser {
     format.setTimeZone(TimeZone.getTimeZone("America/New_York"));
     Date time = new Date(millis);
     return format.format(time);
+  }
+
+  public static UUID parseUUID(String uuid) throws InvalidUUIDException {
+    uuid = uuid.toLowerCase().replaceAll("[^0-9a-z]", "");
+    if (uuid.length() == 32) {
+      return UUID.fromString(uuid.substring(0,8) + "-" + uuid.substring(8,12) + "-" + uuid.substring(12,16) + "-"
+            + uuid.substring(16,20) + "-" + uuid.substring(20,32));
+    }
+    throw new InvalidUUIDException(uuid);
+  }
+
+  public static String formatUUID(String uuid) throws InvalidUUIDException {
+    uuid = uuid.toLowerCase().replaceAll("[^0-9a-z]", "");
+    if (uuid.length() == 32) {
+      return uuid.substring(0,8) + "-" + uuid.substring(8,12) + "-" + uuid.substring(12,16) + "-"
+            + uuid.substring(16,20) + "-" + uuid.substring(20,32);
+    }
+    throw new InvalidUUIDException(uuid);
   }
 }

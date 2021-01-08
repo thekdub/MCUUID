@@ -1,16 +1,18 @@
 package com.thekdub.mcuuid.objects;
 
+import java.util.UUID;
+
 public class UUIDEntry {
-  public final String uuid;
+  public final UUID uuid;
   public final long changedToAt;
 
-  public UUIDEntry(String uuid) {
-    this.uuid = uuid.toLowerCase();
+  public UUIDEntry(UUID uuid) {
+    this.uuid = uuid;
     this.changedToAt = 0L;
   }
 
-  public UUIDEntry(String uuid, long changedToAt) {
-    this.uuid = uuid.toLowerCase();
+  public UUIDEntry(UUID uuid, long changedToAt) {
+    this.uuid = uuid;
     this.changedToAt = changedToAt;
   }
 

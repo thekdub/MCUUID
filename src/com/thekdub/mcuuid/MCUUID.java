@@ -1,5 +1,6 @@
 package com.thekdub.mcuuid;
 
+import com.thekdub.mcuuid.exceptions.InvalidUUIDException;
 import com.thekdub.mcuuid.exceptions.UUIDNotFoundException;
 import com.thekdub.mcuuid.exceptions.UserNotFoundException;
 import com.thekdub.mcuuid.objects.NameEntry;
@@ -115,7 +116,7 @@ public class MCUUID extends JavaPlugin {
             }
           } catch (IOException e) {
             e.printStackTrace();
-          } catch (UserNotFoundException | UUIDNotFoundException e) {
+          } catch (UserNotFoundException | UUIDNotFoundException | InvalidUUIDException e) {
             sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
                   "&8[&2MC&6UUID&8] &c" + e.getMessage()));
           }
@@ -146,7 +147,7 @@ public class MCUUID extends JavaPlugin {
             }
           } catch (IOException e) {
             e.printStackTrace();
-          } catch (UUIDNotFoundException e) {
+          } catch (UUIDNotFoundException | InvalidUUIDException e) {
             sender.sendMessage(ChatColor.translateAlternateColorCodes('&',
                   "&8[&2MC&6UUID&8] &c" + e.getMessage()));
           }
