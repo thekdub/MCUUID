@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.sql.*;
 import java.util.LinkedHashSet;
 
+// Note: I am aware the database transaction strings in this are improperly handled; I no longer create statements in this way and have not done so in new applications for years.
 public class DataStore {
 
   private static Connection connection = null;
